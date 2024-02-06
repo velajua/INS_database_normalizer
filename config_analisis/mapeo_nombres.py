@@ -1,0 +1,20 @@
+MAPPER = {
+    'BOTH':
+    {
+        'SANTANDER SAN ANDRES': 'SAN ANDRES DE TUMACO',
+    },
+    'DEPTO':
+    {
+        'BUENAVENTURA': 'VALLE',
+        'CALI': 'VALLE',
+    },
+    'MUN':
+    {
+        '* NORTE DE SANTANDER. MUNICIPIO DESCONOCIDO': '* NORTE SANTANDER. MUNICIPIO DESCONOCIDO',
+        'CIUDAD BOLIVAR': 'BOLIVAR',
+        'NOROSE': 'NOROSI',
+        'NORTE DE SANTANDER': 'NORTE SANTANDER',
+        'SANTA MARTHA': 'SANTA MARTA',
+        'SANTAFE DE ANTIOQUIA': 'ANTIOQUIA',
+    },
+}
