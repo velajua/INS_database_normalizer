@@ -119,7 +119,7 @@ def rename_and_filter_columns(df, cols_kept, closest_col,
     cols_to_keep = set()
     for rule in cols_kept:
         parts = rule.split()
-        if len(parts.split()) == 3:
+        if len(parts) == 3:
             command = parts[0]
             if command == 'len':
                 target_col_name = parts[2]
