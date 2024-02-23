@@ -6,7 +6,7 @@ Este conjunto de herramientas está diseñado para la consolidación y normaliza
 ## Instalación
 - Clonar el repositorio.
 - Asegurarse de tener Python instalado y configurado.
-- Instalar las dependencias necesarias con `pip install -r _codigo fuente/requirements.txt`.
+- Instalar las dependencias necesarias con `pip install -r _codigo_fuente/requirements.txt`.
 
 ## Uso
 ### Concatenador de Excel
