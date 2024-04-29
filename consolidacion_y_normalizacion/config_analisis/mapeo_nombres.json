@@ -1,0 +1,23 @@
+{
+    "MAPPER": {
+        "BOTH": {
+            "CAUCA VILLARICA": "* CAUCA. MUNICIPIO DESCONOCIDO",
+            "CUNDINAMARCA RAFAEL REYES": "* CUNDINAMARCA. MUNICIPIO DESCONOCIDO",
+            "SANTANDER SAN ANDRES": "SAN ANDRES DE TUMACO",
+            "TOLIMA VILLARICA": "VILLARRICA"
+        },
+        "DEPTO": {
+            "BUENAVENTURA": "VALLE",
+            "CALI": "VALLE"
+        },
+        "MUN": {
+            "* NORTE DE SANTANDER. MUNICIPIO DESCONOCIDO": "* NORTE SANTANDER. MUNICIPIO DESCONOCIDO",
+            "CIUDAD BOLIVAR": "BOLIVAR",
+            "NOROSE": "NOROSI",
+            "NORTE DE SANTANDER": "NORTE SANTANDER",
+            "SAN ANTONIO DE TEQUENDAMA": "SAN ANTONIO DEL TEQUENDAMA",
+            "SANTA MARTHA": "SANTA MARTA",
+            "SANTAFE DE ANTIOQUIA": "ANTIOQUIA"
+        }
+    }
+}

@@ -1,0 +1,21 @@
+{
+    "year": "A\u00d1O",
+    "week": "SEMANA",
+    "dept": "DEPARTAMENTO",
+    "mun": "MUNICIPIO",
+    "cases": "NCASOS",
+    "year_not_grouped": "A\u00d1O",
+    "week_not_grouped": "SEMANA",
+    "dept_not_grouped": "NOM_DEPT_O_ACC",
+    "mun_not_grouped": "NOM_MUN_O_ACC",
+    "count_not_grouped": "COD_JOIN_O",
+    "initial_X": true,
+    "initial_Y": false,
+    "percentile25_lower_limit": "green",
+    "percentile50_upper_limit": "yellow",
+    "percentile75": "red",
+    "latest_year": "black",
+    "series_name": "Serie",
+    "number_cases": "Numero de Casos",
+    "confidence": 0.95
+}

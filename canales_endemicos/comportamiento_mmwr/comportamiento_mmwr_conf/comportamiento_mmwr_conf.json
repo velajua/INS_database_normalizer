@@ -1,0 +1,12 @@
+{
+    "year": "A\u00f1os",
+    "week": "SemanaEpidemiologica",
+    "initial_X": true,
+    "initial_Y": false,
+    "increasing_ratio_color": "orange",
+    "decreasing_ratio_color": "gray",
+    "increasing_complement_color": "blue",
+    "decreasing_complement_color": "black",
+    "observed_color": "red",
+    "expected_color": "purple"
+}
