@@ -4,8 +4,6 @@ import pandas as pd
 import tkinter as tk
 from tkinter import ttk, filedialog
 
-from unidecode import unidecode
-
 from uuid import uuid4
 from openpyxl import load_workbook
 
@@ -356,8 +354,7 @@ def delete_duplicates(filename: str):
                 index=False, sep=';',
                 encoding=enc, errors='ignore')
         print('wrote to new csv')
-        df.to_excel(f'{filename}.xlsx', index=False,
-                    engine='openpyxl')
+        write_large_excel(df, f'{filename}.xlsx')
         print('wrote to new excel')
     elif csv_var.get() and not excel_var.get():
         df.to_csv(f'{filename}.csv',
@@ -365,12 +362,16 @@ def delete_duplicates(filename: str):
                 encoding=enc, errors='ignore')
         print('wrote to new csv')
     elif excel_var.get() and not csv_var.get():
-        df.to_excel(f'{filename}.xlsx', index=False,
-                    engine='openpyxl')
+        write_large_excel(df, f'{filename}.xlsx')
         print('wrote to new excel')
         os.remove(f'{filename}.csv')
     print('finished')
 
+def write_large_excel(df, file_name, chunk_size=100000):
+    with pd.ExcelWriter(file_name, engine='xlsxwriter') as writer:
+        for start in range(0, len(df), chunk_size):
+            end = start + chunk_size
+            df[start:end].to_excel(writer, index=False, header=(start == 0), startrow=start)
 
 def get_filename(str_):
         return os.path.join('config_concatenador',

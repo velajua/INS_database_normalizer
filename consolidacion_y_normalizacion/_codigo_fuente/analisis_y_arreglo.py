@@ -359,12 +359,13 @@ def analyzer():
     progress_bar["value"] = 10
     root.update()
     with open(os.path.join('config_analisis',
-                           file_order.get()), 'r', encoding=enc) as f:
+                           file_order.get()), 'r', encoding='utf-8') as f:
         actions = [i.strip() for i in f.readlines() if i]
     progress_bar["value"] = 20
     root.update()
 
     for index_, action in enumerate(actions):
+        print(f'current action: {action}')
         if len(action.split()) == 3:
             order, cols_in, cols_out = action.split()
             if order == 'f':
@@ -461,16 +462,25 @@ def analyzer():
     progress_bar["value"] = 90
     root.update()
     if err_df.empty and err_df_2.empty:
+        print('writing data to file')
         if '.csv' in file_name:
             df.to_csv(file_name, index=False, sep=';', encoding=enc)
         elif '.xls' in file_name:
-            df.to_excel(file_name, index=False)
+            write_large_excel(df, file_name)
     else:
+        print('writing errors to file')
         temp_df = pd.concat([err_df, err_df_2], ignore_index=True, sort=False)
-        temp_df.to_excel(
-            'ERROR_' + file_name.replace('.csv', '') + '.xlsx', index=False)
+        write_large_excel(temp_df, 'ERROR_' + file_name.replace('.csv', '') + '.xlsx')
+    print('finished')
     progress_bar.destroy()
     root.update()
+
+
+def write_large_excel(df, file_name, chunk_size=100000):
+    with pd.ExcelWriter(file_name, engine='xlsxwriter') as writer:
+        for start in range(0, len(df), chunk_size):
+            end = start + chunk_size
+            df[start:end].to_excel(writer, index=False, header=(start == 0), startrow=start)
 
 
 if __name__ == '__main__':
