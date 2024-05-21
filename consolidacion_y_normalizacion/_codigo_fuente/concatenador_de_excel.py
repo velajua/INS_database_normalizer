@@ -237,7 +237,7 @@ def make_excel_concat(selected_files: list):
                     root.update()
                 df_concat.to_csv(f'{concat_filename}.csv', index=False,
                                  mode='a', header=True if first else False,
-                                 sep=';', encoding=enc)
+                                 sep=';', encoding=enc, errors='ignore')
                 first = False
                 df_concat = pd.DataFrame()
                 print(f'added {filename}')
@@ -322,7 +322,7 @@ def make_excel_concat(selected_files: list):
                 df_concat.to_csv(f'{concat_filename}.csv',
                                  index=False, mode='a',
                                  header=True if first else False,
-                                 sep=';', encoding=enc)
+                                 sep=';', encoding=enc, errors='ignore')
                 first = False
                 df_concat = pd.DataFrame()
                 print(f'added {filename}')
@@ -336,7 +336,11 @@ def make_excel_concat(selected_files: list):
 def delete_duplicates(filename: str):
     print('deleting duplicates')
     df = pd.read_csv(f'{filename}.csv', sep=';', dtype='str',
-                     encoding=enc, on_bad_lines='skip')
+                     encoding=enc, on_bad_lines='skip',
+                     encoding_errors='ignore')
+    print('read the csv file')
+    df = df.map(lambda x: x.encode(enc, 'replace').decode(enc)
+                                   if isinstance(x, str) else x)
     # Check for duplicates and save them to Excel if they exist
     if duplicados_var.get():
         if (duplicates := df.duplicated()).any():
@@ -344,18 +348,26 @@ def delete_duplicates(filename: str):
                                     index=False)
         # Drop duplicates based on all columns
         df = df.drop_duplicates()
+        print('duplicates deleted')
     # Write the DataFrame back to the CSV file
+    print('writing to new files')
     if excel_var.get() and csv_var.get():
         df.to_csv(f'{filename}.csv',
                 index=False, sep=';',
-                encoding='latin-1')
-        df.to_excel(f'{filename}.xlsx', index=False)
+                encoding=enc, errors='ignore')
+        print('wrote to new csv')
+        df.to_excel(f'{filename}.xlsx', index=False,
+                    engine='openpyxl')
+        print('wrote to new excel')
     elif csv_var.get() and not excel_var.get():
         df.to_csv(f'{filename}.csv',
                 index=False, sep=';',
-                encoding='latin-1')
+                encoding=enc, errors='ignore')
+        print('wrote to new csv')
     elif excel_var.get() and not csv_var.get():
-        df.to_excel(f'{filename}.xlsx', index=False)
+        df.to_excel(f'{filename}.xlsx', index=False,
+                    engine='openpyxl')
+        print('wrote to new excel')
         os.remove(f'{filename}.csv')
     print('finished')
 
