@@ -251,7 +251,7 @@ def get_joined_code(x, info, cols_out):
     mun_ = both_mapper[dept_ + ' ' + mun_] if (
         dept_ + ' ' + mun_) in both_mapper else mun_
 
-    if dept_ == 'NAN' and mun_ == 'NAN' and str(x[cols_out]) == '0':
+    if dept_ in ['NAN', 'DESCONOCIDO'] and mun_ in ['NAN', 'DESCONOCIDO'] and str(x[cols_out]) == '0':
         x[cols_out] = '00000'
     elif dept_ != 'NAN' and mun_ == 'NAN' and str(x[cols_out]) == '0':
         mun_ = f'* {dept_}. MUNICIPIO DESCONOCIDO'
@@ -297,7 +297,7 @@ def find_str(x, info, temp_col):
     return x
 
 
-def try_to_parse(x, cols_in, DICT):
+def try_to_parse(x, cols_in, DICT, action):
     try:
         x = str(x).upper()
         out = DICT[x].split('%')
@@ -308,6 +308,7 @@ def try_to_parse(x, cols_in, DICT):
 
         bad_row = df.loc[df[cols_in] == key_error_string][[
             i for i in ERR_COLS if i in df.columns]]
+        bad_row['REASON'] = action
         err_df_2 = pd.concat([err_df_2, bad_row], ignore_index=True)
         return ['0', '0']
 
@@ -389,21 +390,23 @@ def analyzer():
                             if len(str(x[cols_out])) == 1 else x, axis=1)
                 filtered_df = df.loc[df[cols_out].apply(
                     lambda x: len(str(x)) == 1)][[i for i in ERR_COLS if i in df.columns]].drop_duplicates()
+                filtered_df['REASON'] = action
                 err_df = pd.concat([err_df, filtered_df], ignore_index=True)
+
             elif order == 'cod_name':
                 cols_out = cols_out.split(',')
                 if len(cols_out) != 2 or not cols_in in df.columns:
                     open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "cod_name"')
                     quit()
                 df[cols_out] = df[cols_in].apply(lambda x: try_to_parse(
-                    x, cols_in, CDM)).to_list()
+                    x, cols_in, CDM, action)).to_list()
             elif order == 'cod_name_acc':
                 cols_out = cols_out.split(',')
                 if len(cols_out) != 2 or not cols_in in df.columns:
                     open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "cod_name"')
                     quit()
                 df[cols_out] = df[cols_in].apply(lambda x: try_to_parse(
-                    x, cols_in, CDM_ACC)).to_list()
+                    x, cols_in, CDM_ACC, action)).to_list()
                 for col_ in cols_out:
                     df[col_] = df[col_].apply(lambda x: x.encode('latin-1').decode('utf-8'))
             elif order == '+':

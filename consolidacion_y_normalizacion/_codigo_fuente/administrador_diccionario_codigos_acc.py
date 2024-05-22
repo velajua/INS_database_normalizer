@@ -80,7 +80,8 @@ def add_code():
         if not mun:
             messagebox.showerror("Error", "Debe ingresar un Municipio.")
             return
-        temp_info = depto.strip().capitalize() + '%' + mun.strip().capitalize().replace('"', '').replace("'", '')
+
+        temp_info = depto.strip() + '%' + mun.strip().replace('"', '').replace("'", '')
         for i, j in codes_dict.items():
             if temp_info == j and not messagebox.askyesno(
                     "Confirmar", f"El valor\nDEPT: {j.split('%')[0]}\nMUN: {j.split('%')[1]}\nExiste con codigo {i}\n¿Desea añadir el nuevo codigo?"):

@@ -211,6 +211,7 @@ def make_excel_concat(selected_files: list):
                     # Read the sheet data and re-order the columns
                     df = pd.read_excel(xl_file, sheet_name=sheet_name,
                                        dtype=str, header=None)
+                    df = df.dropna(how='all')
                     length = [i.split()[1]
                               for i in cols_kept
                               if 'len ' in i][0]
@@ -304,7 +305,8 @@ def make_excel_concat(selected_files: list):
                     # Read the sheet data and re-order the columns
                     df = pd.read_excel(xl_file,
                                        sheet_name=sheet_name,
-                                       dtype=str)         
+                                       dtype=str)    
+                    df = df.dropna(how='all')     
                     df.rename(columns=lambda x: organize_col(x),
                               inplace=True)
                     missing_columns = set(column_dict
@@ -333,12 +335,13 @@ def make_excel_concat(selected_files: list):
 
 def delete_duplicates(filename: str):
     print('deleting duplicates')
-    df = pd.read_csv(f'{filename}.csv', sep=';', dtype='str',
+    df = pd.read_csv(f'{filename}.csv', sep=';', dtype=str,
                      encoding=enc, on_bad_lines='skip',
                      encoding_errors='ignore')
     print('read the csv file')
     df = df.map(lambda x: x.encode(enc, 'replace').decode(enc)
                                    if isinstance(x, str) else x)
+    df = df.dropna(how='all')
     # Check for duplicates and save them to Excel if they exist
     if duplicados_var.get():
         if (duplicates := df.duplicated()).any():

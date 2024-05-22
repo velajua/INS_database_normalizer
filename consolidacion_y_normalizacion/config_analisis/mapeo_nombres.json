@@ -8,7 +8,8 @@
         },
         "DEPTO": {
             "BUENAVENTURA": "VALLE",
-            "CALI": "VALLE"
+            "CALI": "VALLE",
+            "SANTA MARTA": "STA MARTA D.E."
         },
         "MUN": {
             "* NORTE DE SANTANDER. MUNICIPIO DESCONOCIDO": "* NORTE SANTANDER. MUNICIPIO DESCONOCIDO",
