@@ -64,8 +64,8 @@ def add_mapping():
         messagebox.showerror("Error", "Tipo de mapeo inválido.")
         return
 
-    original = unidecode(original_entry.get().strip().upper()).replace('"', '').replace("'", '')
-    mapped = unidecode(mapped_entry.get().strip().upper()).replace('"', '').replace("'", '')
+    original = unidecode(original_entry.get().strip().upper()).replace('"', '')
+    mapped = unidecode(mapped_entry.get().strip().upper()).replace('"', '')
 
     if not original or not mapped:
         messagebox.showerror("Error", "Original o Mapeo están vacíos.")

@@ -232,7 +232,7 @@ def make_excel_concat(selected_files: list):
                     df = df[column_dict]
                     print(df.shape)
                     df = df.reset_index(drop=True)
-                    df_concat = pd.concat([df_concat, df], axis=0)
+                    df_concat = pd.concat([df_concat, df], axis=0, ignore_index=True)
                     root.update()
                 df_concat.to_csv(f'{concat_filename}.csv', index=False,
                                  mode='a', header=True if first else False,

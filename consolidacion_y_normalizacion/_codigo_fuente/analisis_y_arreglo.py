@@ -1,9 +1,13 @@
 import os
 import re
 import json
+import hashlib
 import difflib
 import pandas as pd
 import tkinter as tk
+
+import logging
+import traceback
 
 from uuid import uuid4
 from unidecode import unidecode
@@ -15,18 +19,22 @@ from datetime import datetime, timedelta
 
 from PIL import Image, ImageDraw, ImageTk
 
+logging.basicConfig(filename='error_log.log', level=logging.ERROR)
+
 
 def open_popup(message):
     popup = tk.Toplevel()
     popup.title("Message")
     # Set the position of the popup
-    popup.geometry("300x100")
+    popup.geometry("300x150")
     # Add a label with the message
     message_label = tk.Label(popup, text=message, wraplength=280)
     message_label.pack(pady=20)
     # Add a button to close the popup
     close_button = tk.Button(popup, text="Close", command=popup.destroy)
     close_button.pack(pady=5)
+    # Wait until the popup window is closed
+    popup.wait_window()
 
 
 ERR_COLS, CDM, CODS_INV, MAPPER, CDM_ACC = None, None, None, None, None
@@ -150,7 +158,7 @@ def search_file(label_):
         global file_name, file_order
         # Determine the initial directory based on label_
         initial_dir = './' if label_ == 'base' else './config_analisis'
-        filetypes = [('CSV files', '*.csv'), ('Excel files', '*.xls *.xlsx')] if label_ == 'base' else [('Text files', '*.txt')]
+        filetypes = [('Excel files', '*.xls *.xlsx'), ('CSV files', '*.csv')] if label_ == 'base' else [('Text files', '*.txt')]
         # Open a file dialog with the initial directory set
         filepath = filedialog.askopenfilename(initialdir=initial_dir, filetypes=filetypes)
         if filepath:  # Check if a file was selected
@@ -177,13 +185,17 @@ def apply_excel_date(fecha):
         date_obj = datetime.strptime(fecha, '%d/%m/%Y')
         fecha = date_obj.strftime('%Y-%m-%d')
     except:
-        if str(fecha)[:2] not in ['19', '20'] and str(
-                fecha)[0].isnumeric():
-            if len(str(fecha).split('/')) == 3 or len(
-                    str(fecha).split('-')) == 3 or str(
-                        fecha)[:3] == '00:':
-                return fecha
-            fecha = str((excel_num_to_date(int(fecha))))
+        try:
+            date_obj = datetime.strptime(fecha, '%d %b %Y %H:%M:%S:%f')
+            fecha = date_obj.strftime('%d %b %Y %H:%M:%S:%f')[:-3]
+        except:
+            if str(fecha)[:2] not in ['19', '20'] and str(
+                    fecha)[0].isnumeric():
+                if len(str(fecha).split('/')) == 3 or len(
+                        str(fecha).split('-')) == 3 or str(
+                            fecha)[:3] == '00:':
+                    return fecha
+                fecha = str((excel_num_to_date(int(fecha))))            
     return fecha
 
 
@@ -338,145 +350,240 @@ def transform_value(val):
         return val
 
 
+def mask_half_of_each_word(name):
+    words = str(name).replace('  ', ' ').strip().split()
+    masked_words = []
+    for word in words:
+        half_length = len(word) // 2
+        masked_word = word[:half_length] + '*' * (len(word) - half_length)
+        masked_words.append(masked_word)
+    return ' '.join(masked_words)
+
+
+def column_contains(value, column):
+    if re.search(value, str(column), re.IGNORECASE):
+        return 1
+    return 2
+
+
+def get_first_non_null(row, valid_cols):
+        for col in valid_cols:
+            if pd.notnull(row[col]):
+                return col
+        return None
+
+
 def analyzer():
-    global err_df, err_df_2, df, file_name, file_order, progress_bar, root
-    progress_bar = ttk.Progressbar(root,
-                                   orient='horizontal',
-                                   length=350,
-                                   mode="determinate")
-    progress_bar.pack(pady=20)
-    progress_bar["value"] = 0
-    root.update()
-    if not file_name.get() and file_order.get():
-        open_popup('Debe Seleccionar Archivos para Analizar')
+    try:
+        global err_df, err_df_2, df, file_name, file_order, progress_bar, root
+        progress_bar = ttk.Progressbar(root,
+                                    orient='horizontal',
+                                    length=350,
+                                    mode="determinate")
+        progress_bar.pack(pady=20)
+        progress_bar["value"] = 0
+        root.update()
+        if not file_name.get() and file_order.get():
+            open_popup('Debe Seleccionar Archivos para Analizar')
+            progress_bar.destroy()
+            root.update()
+            return
+        if '.csv' in (file_name := file_name.get()):
+            df = pd.read_csv(file_name, sep=';',
+                            dtype='str', encoding=enc)
+        elif '.xlsx' in file_name:
+            df = pd.read_excel(file_name, dtype=str)
+        progress_bar["value"] = 10
+        root.update()
+        with open(os.path.join('config_analisis',
+                            file_order.get()), 'r', encoding='utf-8') as f:
+            actions = [i.strip() for i in f.readlines() if i]
+        progress_bar["value"] = 20
+        root.update()
+
+        for index_, action in enumerate(actions):
+            print(f'current action: {action}')
+            if len(action.split()) == 3:
+                order, cols_in, cols_out = action.split()
+                if order == 'f':
+                    if cols_in in df.columns:
+                        df[cols_out] = df[cols_in].apply(
+                            lambda x: apply_excel_date(x)
+                            if x and str(x).lower() not in [
+                                'nan', 'none']
+                            else x)
+                    else:
+                        open_popup(f'Error en columnas {cols_in} para orden "f"')
+                        quit()
+                elif order == 'cod':
+                    df[cols_out] = df.apply(lambda x:
+                                            get_clean_code(x, cols_in),
+                                            axis=1)
+                elif order == 'name_cod':
+                    if cols_out not in df.columns:
+                        df[cols_out] = '0'
+                    df = df.apply(lambda x: get_joined_code(x, cols_in, cols_out)
+                                if len(str(x[cols_out])) == 1 else x, axis=1)
+                    filtered_df = df.loc[df[cols_out].apply(
+                        lambda x: len(str(x)) == 1)][[i for i in ERR_COLS if i in df.columns]].drop_duplicates()
+                    filtered_df['REASON'] = action
+                    err_df = pd.concat([err_df, filtered_df], ignore_index=True)
+                elif order == 'mask':
+                    if not cols_in in df.columns:
+                        open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "mask"')
+                        quit()
+                    df[cols_out] = df[cols_in].apply(lambda x: mask_half_of_each_word(x))
+                elif order == 'contains':
+                    values = cols_in.split(',')
+                    if len(values) != 2 or not values[0] in df.columns:
+                        open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "contains"')
+                        quit()
+                    col, word = values
+                    df[cols_out] = df[col].apply(lambda x: column_contains(word, x))
+                elif order ==  'diff_val':
+                    cols_in = cols_in.split(',')
+                    for col in cols_in:
+                        if col not in df.columns:
+                            open_popup(f'Error en columnas {cols_in} para orden "diff_val"')
+                            quit()
+                    df[cols_out] = df.apply(lambda row: ''.join(str(row[col]).replace(' ', '').replace('*', '')[-4:] for col in cols_in), axis=1)
+                elif order ==  'hash':
+                    cols_in = cols_in.split(',')
+                    for col in cols_in:
+                        if col not in df.columns:
+                            open_popup(f'Error en columnas {cols_in} para orden "hash"')
+                            quit()
+                    df[cols_out] = df.apply(lambda row: hashlib.sha256(''.join(str(row[col]) for col in cols_in).encode()).hexdigest()[:16], axis=1)
+                elif order == 'cod_name':
+                    cols_out = cols_out.split(',')
+                    if len(cols_out) != 2 or not cols_in in df.columns:
+                        open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "cod_name"')
+                        quit()
+                    df[cols_out] = df[cols_in].apply(lambda x: try_to_parse(
+                        x, cols_in, CDM, action)).to_list()
+                elif order == 'cod_name_acc':
+                    cols_out = cols_out.split(',')
+                    if len(cols_out) != 2 or not cols_in in df.columns:
+                        open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "cod_name"')
+                        quit()
+                    df[cols_out] = df[cols_in].apply(lambda x: try_to_parse(
+                        x, cols_in, CDM_ACC, action)).to_list()
+                    for col_ in cols_out:
+                        df[col_] = df[col_].apply(lambda x: x.encode('latin-1').decode('utf-8'))
+                elif order == '+':
+                    col_names = cols_in.split(',')
+                    if not all(y in df.columns for y in col_names):
+                        open_popup(f'Error en columnas {cols_in} para orden "+"')
+                        # quit()
+                    df[cols_out] = df[col_names].apply(
+                        lambda x: ''.join(x.astype(str)), axis=1)
+                elif order == '-':
+                    if not cols_in in df.columns or not cols_out in df.columns or cols_in != cols_out:
+                        open_popup(f'Error en columnas {cols_in} para orden "-"')
+                        quit()
+                    df = df.drop(columns=[cols_in])
+                elif order == 'ag':
+                    cols_part, word = cols_in.split(';')
+                    cols = cols_part.strip('()').split(',')
+                    print(cols_part, word, cols)
+                    if all(col not in df.columns for col in cols) and word == '':
+                        for col_out in cols_out:
+                            df[col_out] = word
+                    else:
+                        get_first_non_null_col = lambda row: next((row[col] for col in cols if col in df.columns and pd.notnull(row[col])), word)
+                        df[cols_out] = df.apply(get_first_non_null_col, axis=1)
+                elif order == 'f0':
+                    cols, zfill_width = cols_in.split(';')
+                    zfill_width = int(zfill_width)
+                    if not cols in df.columns:
+                        open_popup(f'Error en columnas {cols_in} para orden "f0"')
+                        quit()
+                    df[cols_out] = df[cols].astype(str).str.zfill(zfill_width)
+                elif order == 'cut':
+                    cols, _index, _length = cols_in.split(';')
+                    if not cols in df.columns or not _index in ['start', 'end'] or not _length.isnumeric():
+                        open_popup(f'Error en columnas {cols_in} para orden "cut"')
+                        quit()
+                    if _index == 'start':
+                        df[cols_out] = df[cols].apply(lambda x: str(x)[:int(_length)])
+                    elif _index == 'end':
+                        df[cols_out] = df[cols].apply(lambda x: str(x)[-1*int(_length):])
+                elif order == 'if':
+                    expr, true_, false_ = cols_in.split(';')
+                    cols, val = expr.split('=')
+                    if not cols in df.columns:
+                        open_popup(f'Error en columnas {cols_in} para orden "if"')
+                        quit()
+                    df[cols_out] = df[cols].apply(lambda x: true_ if str(x) == val else false_)
+                elif order == '=':
+                    df[cols_out] = cols_in
+                elif order[0] == '&':
+                    order = order[1:]
+                    order = order.split('&')
+                    if len(order) != 3:
+                        open_popup(f'Error en orden {order} para orden "&"')
+                        quit()
+                    file, out_cols, operation = order
+                    out_cols = out_cols.split(',')
+                    if not os.path.exists(os.path.join('config_analisis', file)):
+                        open_popup(f'Error en archivo {file} para orden "&"')
+                        quit()
+                    else:
+                        temp_col = str(uuid4())
+                        temp_file = pd.read_excel(os.path.join('config_analisis', file))
+                        temp_file.columns = [
+                            unidecode(str(col)).upper().replace(' ', '_').strip('_').strip()
+                            for col in temp_file.columns]
+                        if not all(y in temp_file.columns for y in out_cols):
+                            open_popup(f'Error en columnas {out_cols} para orden "&"')
+                            quit()
+                        if not cols_out in df.columns:
+                            open_popup(f'Error en columnas {cols_out} para orden "&"')
+                            quit()
+                        if operation == 'name_cod':
+                            temp_file[temp_col] = None
+                            temp_file = temp_file.apply(lambda x: find_str(x, cols_in, temp_col), axis=1)
+                            temp_file = temp_file[out_cols + [temp_col]]
+                            df = df.merge(temp_file, left_on=cols_out, right_on=temp_col, how='left')
+                            df = df.drop(columns=[temp_col])
+            else:
+                open_popup(f'Error en formato para {action}')
+                quit()
+            progress_bar["value"] = 20 + (50/len(actions) * index_)
+            root.update()
+
+        for col in err_df.columns:
+            err_df[col] = err_df[col].apply(transform_value)
+
+        err_df = err_df.drop_duplicates()
+
+        for i in err_df_2.columns:
+            err_df_2[i] = err_df_2[i].apply(
+                lambda x: unidecode(str(x)).upper().strip())
+
+        err_df_2 = err_df_2.drop_duplicates()
+
+        progress_bar["value"] = 90
+        root.update()
+        if err_df.empty and err_df_2.empty:
+            print('writing data to file')
+            if '.csv' in file_name:
+                df.to_csv(file_name, index=False, sep=';', encoding=enc)
+            elif '.xls' in file_name:
+                write_large_excel(df, file_name)
+        else:
+            print('writing errors to file')
+            temp_df = pd.concat([err_df, err_df_2], ignore_index=True, sort=False)
+            write_large_excel(temp_df, 'ERROR_' + file_name.replace('.csv', '') + '.xlsx')
+        print('finished')
         progress_bar.destroy()
         root.update()
-        return
-    if '.csv' in (file_name := file_name.get()):
-        df = pd.read_csv(file_name, sep=';',
-                        dtype='str', encoding=enc)
-    elif '.xlsx' in file_name:
-        df = pd.read_excel(file_name, dtype=str)
-    progress_bar["value"] = 10
-    root.update()
-    with open(os.path.join('config_analisis',
-                           file_order.get()), 'r', encoding='utf-8') as f:
-        actions = [i.strip() for i in f.readlines() if i]
-    progress_bar["value"] = 20
-    root.update()
-
-    for index_, action in enumerate(actions):
-        print(f'current action: {action}')
-        if len(action.split()) == 3:
-            order, cols_in, cols_out = action.split()
-            if order == 'f':
-                if cols_in in df.columns:
-                    df[cols_out] = df[cols_in].apply(
-                        lambda x: apply_excel_date(x)
-                        if x and str(x).lower() not in [
-                            'nan', 'none']
-                        else x)
-                else:
-                    open_popup(f'Error en columnas {cols_in} para orden "f"')
-                    quit()
-            elif order == 'cod':
-                df[cols_out] = df.apply(lambda x:
-                                        get_clean_code(x, cols_in),
-                                        axis=1)
-            elif order == 'name_cod':
-                if cols_out not in df.columns:
-                    df[cols_out] = '0'
-                df = df.apply(lambda x: get_joined_code(x, cols_in, cols_out)
-                            if len(str(x[cols_out])) == 1 else x, axis=1)
-                filtered_df = df.loc[df[cols_out].apply(
-                    lambda x: len(str(x)) == 1)][[i for i in ERR_COLS if i in df.columns]].drop_duplicates()
-                filtered_df['REASON'] = action
-                err_df = pd.concat([err_df, filtered_df], ignore_index=True)
-
-            elif order == 'cod_name':
-                cols_out = cols_out.split(',')
-                if len(cols_out) != 2 or not cols_in in df.columns:
-                    open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "cod_name"')
-                    quit()
-                df[cols_out] = df[cols_in].apply(lambda x: try_to_parse(
-                    x, cols_in, CDM, action)).to_list()
-            elif order == 'cod_name_acc':
-                cols_out = cols_out.split(',')
-                if len(cols_out) != 2 or not cols_in in df.columns:
-                    open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "cod_name"')
-                    quit()
-                df[cols_out] = df[cols_in].apply(lambda x: try_to_parse(
-                    x, cols_in, CDM_ACC, action)).to_list()
-                for col_ in cols_out:
-                    df[col_] = df[col_].apply(lambda x: x.encode('latin-1').decode('utf-8'))
-            elif order == '+':
-                col_names = cols_in.split(',')
-                if not all(y in df.columns for y in col_names):
-                    open_popup(f'Error en columnas {cols_in} para orden "+"')
-                    quit()
-                df[cols_out] = df[col_names].apply(
-                    lambda x: ''.join(x.astype(str)), axis=1)
-            elif order[0] == '&':
-                order = order[1:]
-                order = order.split('&')
-                if len(order) != 3:
-                    open_popup(f'Error en orden {order} para orden "&"')
-                    quit()
-                file, out_cols, operation = order
-                out_cols = out_cols.split(',')
-                if not os.path.exists(os.path.join('config_analisis', file)):
-                    open_popup(f'Error en archivo {file} para orden "&"')
-                    quit()
-                else:
-                    temp_col = str(uuid4())
-                    temp_file = pd.read_excel(os.path.join('config_analisis', file))
-                    temp_file.columns = [
-                        unidecode(str(col)).upper().replace(' ', '_').strip('_').strip()
-                        for col in temp_file.columns]
-                    if not all(y in temp_file.columns for y in out_cols):
-                        open_popup(f'Error en columnas {out_cols} para orden "&"')
-                        quit()
-                    if not cols_out in df.columns:
-                        open_popup(f'Error en columnas {cols_out} para orden "&"')
-                        quit()
-                    if operation == 'name_cod':
-                        temp_file[temp_col] = None
-                        temp_file = temp_file.apply(lambda x: find_str(x, cols_in, temp_col), axis=1)
-                        temp_file = temp_file[out_cols + [temp_col]]
-                        df = df.merge(temp_file, left_on=cols_out, right_on=temp_col, how='left')
-                        df = df.drop(columns=[temp_col])
-        else:
-            open_popup(f'Error en formato para {action}')
-            quit()
-        progress_bar["value"] = 20 + (50/len(actions) * index_)
+    except Exception:
+        logging.error("Exception occurred", exc_info=True)
+        logging.error(traceback.format_exc())
+        progress_bar.destroy()
         root.update()
-
-    for col in err_df.columns:
-        err_df[col] = err_df[col].apply(transform_value)
-
-    err_df = err_df.drop_duplicates()
-
-    for i in err_df_2.columns:
-        err_df_2[i] = err_df_2[i].apply(
-            lambda x: unidecode(str(x)).upper().strip())
-
-    err_df_2 = err_df_2.drop_duplicates()
-
-    progress_bar["value"] = 90
-    root.update()
-    if err_df.empty and err_df_2.empty:
-        print('writing data to file')
-        if '.csv' in file_name:
-            df.to_csv(file_name, index=False, sep=';', encoding=enc)
-        elif '.xls' in file_name:
-            write_large_excel(df, file_name)
-    else:
-        print('writing errors to file')
-        temp_df = pd.concat([err_df, err_df_2], ignore_index=True, sort=False)
-        write_large_excel(temp_df, 'ERROR_' + file_name.replace('.csv', '') + '.xlsx')
-    print('finished')
-    progress_bar.destroy()
-    root.update()
+        open_popup(f'Se ha generado un log del error')
 
 
 def write_large_excel(df, file_name, chunk_size=100000):
