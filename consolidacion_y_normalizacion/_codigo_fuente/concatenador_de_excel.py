@@ -370,11 +370,12 @@ def delete_duplicates(filename: str):
         os.remove(f'{filename}.csv')
     print('finished')
 
-def write_large_excel(df, file_name, chunk_size=100000):
+def write_large_excel(df, file_name, chunk_size=50000):
     with pd.ExcelWriter(file_name, engine='xlsxwriter') as writer:
         for start in range(0, len(df), chunk_size):
             end = start + chunk_size
             df[start:end].to_excel(writer, index=False, header=(start == 0), startrow=start)
+            writer.book.use_zip64()
 
 def get_filename(str_):
         return os.path.join('config_concatenador',

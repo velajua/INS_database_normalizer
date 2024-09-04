@@ -164,8 +164,7 @@ if __name__ == '__main__':
 
     codes = []
     load_codes()
-    root.geometry(f"350x{min(800, len(codes)*16)+180}")
+    root.geometry(f"350x{min(500, len(codes)*16+180)}")
 
 
     root.mainloop()
-

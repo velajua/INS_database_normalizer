@@ -21,7 +21,6 @@ from PIL import Image, ImageDraw, ImageTk
 
 logging.basicConfig(filename='error_log.log', level=logging.ERROR)
 
-
 def open_popup(message):
     popup = tk.Toplevel()
     popup.title("Message")
@@ -227,13 +226,13 @@ def get_clean_code(x, info):
         cod_mun = cod_mun.zfill(3) if len(
             cod_mun) != 3 else cod_mun
         cod_dept = cod_dept + cod_mun
-    if cod_dept.lower() == 'nannan' or cod_dept in CODS_INV:
+    if cod_dept.lower() == 'nannan' or cod_dept.lower() in CODS_INV or cod_dept.upper() in CODS_INV:
         cod_dept = '0'
     if cod_dept[-3:].lower() == 'nan':
         cod_dept = cod_dept[:2] + '000'
     if len(cod_dept) == 6:
         cod_dept = cod_dept[-2:] + cod_dept[:3]
-    if cod_dept in CODS_INV:
+    if cod_dept.lower() == 'nannan' or cod_dept.lower() in CODS_INV or cod_dept.upper() in CODS_INV:
         cod_dept = '0'
     return cod_dept
 
@@ -318,8 +317,9 @@ def try_to_parse(x, cols_in, DICT, action):
         global err_df_2, df
         key_error_string = str(e).strip("'")
 
-        bad_row = df.loc[df[cols_in] == key_error_string][[
-            i for i in ERR_COLS if i in df.columns]]
+        bad_row = df.loc[df[cols_in].isin([key_error_string,
+                                           key_error_string.lower()])
+                         ][[i for i in ERR_COLS if i in df.columns]]
         bad_row['REASON'] = action
         err_df_2 = pd.concat([err_df_2, bad_row], ignore_index=True)
         return ['0', '0']
@@ -403,6 +403,7 @@ def analyzer():
 
         for index_, action in enumerate(actions):
             print(f'current action: {action}')
+            print(df.columns)
             if len(action.split()) == 3:
                 order, cols_in, cols_out = action.split()
                 if order == 'f':
@@ -464,7 +465,7 @@ def analyzer():
                 elif order == 'cod_name_acc':
                     cols_out = cols_out.split(',')
                     if len(cols_out) != 2 or not cols_in in df.columns:
-                        open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "cod_name"')
+                        open_popup(f'Error en columnas {cols_out} o {cols_in} para orden "cod_name_acc"')
                         quit()
                     df[cols_out] = df[cols_in].apply(lambda x: try_to_parse(
                         x, cols_in, CDM_ACC, action)).to_list()
@@ -474,7 +475,7 @@ def analyzer():
                     col_names = cols_in.split(',')
                     if not all(y in df.columns for y in col_names):
                         open_popup(f'Error en columnas {cols_in} para orden "+"')
-                        # quit()
+                        quit()
                     df[cols_out] = df[col_names].apply(
                         lambda x: ''.join(x.astype(str)), axis=1)
                 elif order == '-':
@@ -487,8 +488,7 @@ def analyzer():
                     cols = cols_part.strip('()').split(',')
                     print(cols_part, word, cols)
                     if all(col not in df.columns for col in cols) and word == '':
-                        for col_out in cols_out:
-                            df[col_out] = word
+                        df[cols_out] = word
                     else:
                         get_first_non_null_col = lambda row: next((row[col] for col in cols if col in df.columns and pd.notnull(row[col])), word)
                         df[cols_out] = df.apply(get_first_non_null_col, axis=1)
@@ -586,11 +586,12 @@ def analyzer():
         open_popup(f'Se ha generado un log del error')
 
 
-def write_large_excel(df, file_name, chunk_size=100000):
+def write_large_excel(df, file_name, chunk_size=50000):
     with pd.ExcelWriter(file_name, engine='xlsxwriter') as writer:
         for start in range(0, len(df), chunk_size):
             end = start + chunk_size
             df[start:end].to_excel(writer, index=False, header=(start == 0), startrow=start)
+            writer.book.use_zip64()
 
 
 if __name__ == '__main__':
